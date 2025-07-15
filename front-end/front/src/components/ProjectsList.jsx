@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Modal,Form } from "react-bootstrap";
+import Register from "./Register";
+import { Modal, Form, Alert, Spinner } from "react-bootstrap";
 import {
   Container,
   Row,
@@ -17,6 +18,8 @@ import {
   FaTasks,
   FaBars,
   FaSignOutAlt,
+  FaEdit,
+  FaTrash,
 } from "react-icons/fa";
 
 import "./ProjectsPage.css"; // for custom styles
@@ -24,50 +27,150 @@ import "./ProjectsPage.css"; // for custom styles
 function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showModal, setShowModal] = useState(false)
-  const [newProject, setNewProject]= useState({
-    name:'',
-    description:'',
-    start_date:'',
-    end_date:'',
-  })
-  const handleChange =(e)=>{
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const [newProject, setNewProject] = useState({
+    name: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+  });
+
+  // Handle form input changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
     setNewProject({
       ...newProject,
-      [e.target.name]:e.target.value,
+      [name]: value,
     });
-  }
-  // handle the from
-  const handleSaveProject = ()=>{
-    axios.post('http://127.0.0.1:8000/api/projects/',{
-      name: newProject.name,
-      description: newProject.description,
-      start_date: newProject.start_date || null,
-      end_date: newProject.end_date || null,
-      owner: 'yazid', 
-    })
-    .then((res)=>{
-      //add it localy without a refresh
-      console.log(res.data);
-      setProjects([...projects, res.data]);
-      setShowModal(false)
-      setNewProject({
-        name:'',
-        description:'',
-        start_date:'',
-        end_date:''
+    
+    // Clear specific field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: ''
       });
-    }).catch((err)=>{
-      console.error(err);
-      console.error(err.response?.data);
-      alert('failed to save project.')
-    })
-  }
+    }
+  };
+
+  // Validate form fields
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!newProject.name.trim()) {
+      errors.name = 'Project name is required';
+    }
+    
+    if (!newProject.description.trim()) {
+      errors.description = 'Description is required';
+    }
+    
+    if (newProject.start_date && newProject.end_date) {
+      if (new Date(newProject.start_date) > new Date(newProject.end_date)) {
+        errors.end_date = 'End date cannot be before start date';
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSaveProject = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setFormLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/projects/', {
+        name: newProject.name.trim(),
+        description: newProject.description.trim(),
+        start_date: newProject.start_date || null,
+        end_date: newProject.end_date || null,
+        owner: 1, // Replace with actual user ID from authentication
+      });
+
+      // Add project to local state
+      setProjects([...projects, response.data]);
+      
+      // Reset form and close modal
+      setNewProject({
+        name: '',
+        description: '',
+        start_date: '',
+        end_date: ''
+      });
+      setShowModal(false);
+      setFormErrors({});
+      
+    } catch (err) {
+      console.error('Error saving project:', err);
+      
+      if (err.response?.data) {
+        // Handle specific field errors from backend
+        if (typeof err.response.data === 'object') {
+          setFormErrors(err.response.data);
+        } else {
+          setError('Failed to save project. Please try again.');
+        }
+      } else {
+        setError('Network error. Please check your connection and try again.');
+      }
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setNewProject({
+      name: '',
+      description: '',
+      start_date: '',
+      end_date: ''
+    });
+    setFormErrors({});
+    setError("");
+  };
+
+  // Delete project
+  const handleDeleteProject = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`http://127.0.0.1:8000/api/projects/${projectId}/`);
+      setProjects(projects.filter(proj => proj.id !== projectId));
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      alert('Failed to delete project. Please try again.');
+    }
+  };
+
+  // Fetch projects on component mount
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/projects/")
-      .then((res) => setProjects(res.data))
-      .catch((err) => console.error(err));
+    const fetchProjects = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get("http://127.0.0.1:8000/api/projects/");
+        setProjects(response.data);
+      } catch (err) {
+        console.error('Error fetching projects:', err);
+        setError('Failed to load projects. Please refresh the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
   }, []);
 
   return (
@@ -88,7 +191,7 @@ function ProjectsPage() {
             <FaTasks className="me-2" /> Tasks
           </Nav.Link>
           <Nav.Link href="#" className="text-white">
-            <FaSignOutAlt className="me-2" /> Logout
+            <FaSignOutAlt className="me-2" /> logout
           </Nav.Link>
         </Nav>
       </div>
@@ -105,110 +208,216 @@ function ProjectsPage() {
         <Container fluid className="mt-4">
           <Row>
             <Col>
-              <h1 className="mb-4">Projects & Tasks</h1>
-              <Button
-                variant="primary"
-                className="mb-3"
-                onClick={() => setShowModal(true)}
-              >
-                <FaPlus className="me-2" /> Add Project
-              </Button>
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h1>Projects & Tasks</h1>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowModal(true)}
+                  disabled={loading}
+                >
+                  <FaPlus className="me-2" /> Add Project
+                </Button>
+              </div>
 
-              {projects.map((proj) => (
-                <Card key={proj.id} className="mb-3 shadow-sm">
-                  <Card.Body>
-                    <div className="d-flex justify-content-between align-items-center">
-                      <Card.Title>{proj.name}</Card.Title>
-                      <Button size="sm" variant="success">
-                        <FaPlus className="me-1" /> Add Task
-                      </Button>
-                    </div>
-                    <Card.Text className="text-muted">{proj.description}</Card.Text>
+              {/* Error display */}
+              {error && (
+                <Alert variant="danger" dismissible onClose={() => setError("")}>
+                  {error}
+                </Alert>
+              )}
 
-                    {proj.tasks && proj.tasks.length > 0 ? (
-                      <ListGroup variant="flush">
-                        {proj.tasks.map((task) => (
-                          <ListGroup.Item
-                            key={task.id}
-                            className="d-flex justify-content-between align-items-center"
-                          >
-                            <span>{task.title}</span>
-                            <span
-                              className={`badge bg-${getStatusColor(task.status)}`}
-                            >
-                              {task.status}
-                            </span>
-                          </ListGroup.Item>
-                        ))}
-                      </ListGroup>
-                    ) : (
-                      <p className="text-muted">No tasks yet.</p>
-                    )}
-                  </Card.Body>
-                </Card>
-              ))}
+              {/* Loading state */}
+              {loading ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </Spinner>
+                </div>
+              ) : (
+                <>
+                  {/* Projects list */}
+                  {projects.length === 0 ? (
+                    <Card className="text-center py-5">
+                      <Card.Body>
+                        <FaProjectDiagram size={50} className="text-muted mb-3" />
+                        <h4 className="text-muted">No projects yet</h4>
+                        <p className="text-muted">Create your first project to get started</p>
+                      </Card.Body>
+                    </Card>
+                  ) : (
+                    projects.map((proj) => (
+                      <Card key={proj.id} className="mb-3 shadow-sm">
+                        <Card.Body>
+                          <div className="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                              <Card.Title>{proj.name}</Card.Title>
+                              <Card.Text className="text-muted">{proj.description}</Card.Text>
+                              {proj.start_date && (
+                                <small className="text-muted">
+                                  Start: {new Date(proj.start_date).toLocaleDateString()}
+                                </small>
+                              )}
+                              {proj.end_date && (
+                                <small className="text-muted ms-3">
+                                  End: {new Date(proj.end_date).toLocaleDateString()}
+                                </small>
+                              )}
+                            </div>
+                            <div className="d-flex gap-2">
+                              <Button size="sm" variant="success">
+                                <FaPlus className="me-1" /> Add Task
+                              </Button>
+                              <Button size="sm" variant="outline-secondary">
+                                <FaEdit />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline-danger"
+                                onClick={() => handleDeleteProject(proj.id)}
+                              >
+                                <FaTrash />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Tasks list */}
+                          {proj.tasks && proj.tasks.length > 0 ? (
+                            <ListGroup variant="flush">
+                              {proj.tasks.map((task) => (
+                                <ListGroup.Item
+                                  key={task.id}
+                                  className="d-flex justify-content-between align-items-center"
+                                >
+                                  <div>
+                                    <span>{task.title}</span>
+                                    {task.description && (
+                                      <small className="text-muted d-block">{task.description}</small>
+                                    )}
+                                  </div>
+                                  <div className="d-flex gap-2 align-items-center">
+                                    <span className={`badge bg-${getPriorityColor(task.priority)}`}>
+                                      {task.priority}
+                                    </span>
+                                    <span className={`badge bg-${getStatusColor(task.status)}`}>
+                                      {task.status}
+                                    </span>
+                                  </div>
+                                </ListGroup.Item>
+                              ))}
+                            </ListGroup>
+                          ) : (
+                            <div className="text-center py-3 bg-light rounded">
+                              <p className="text-muted mb-0">No tasks yet. Add your first task!</p>
+                            </div>
+                          )}
+                        </Card.Body>
+                      </Card>
+                    ))
+                  )}
+                </>
+              )}
             </Col>
           </Row>
         </Container>
       </div>
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-  <Modal.Header closeButton>
-    <Modal.Title>Add New Project</Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    <Form>
-      <Form.Group className="mb-3">
-        <Form.Label>Project Name</Form.Label>
-        <Form.Control
-          type="text"
-          name="name"
-          value={newProject.name}
-          onChange={handleChange}
-        />
-      </Form.Group>
 
-      <Form.Group className="mb-3">
-        <Form.Label>Description</Form.Label>
-        <Form.Control
-          as="textarea"
-          rows={3}
-          name="description"
-          value={newProject.description}
-          onChange={handleChange}
-        />
-      </Form.Group>
+      {/* Add Project Modal */}
+      <Modal show={showModal} onHide={handleCloseModal} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Add New Project</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {error && <Alert variant="danger">{error}</Alert>}
+          
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Project Name <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="text"
+                name="name"
+                value={newProject.name}
+                onChange={handleChange}
+                isInvalid={!!formErrors.name}
+                placeholder="Enter project name"
+              />
+              <Form.Control.Feedback type="invalid">
+                {formErrors.name}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-      <Form.Group className="mb-3">
-        <Form.Label>Start Date</Form.Label>
-        <Form.Control
-          type="date"
-          name="start_date"
-          value={newProject.start_date}
-          onChange={handleChange}
-        />
-      </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Description <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="description"
+                value={newProject.description}
+                onChange={handleChange}
+                isInvalid={!!formErrors.description}
+                placeholder="Enter project description"
+              />
+              <Form.Control.Feedback type="invalid">
+                {formErrors.description}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-      <Form.Group className="mb-3">
-        <Form.Label>End Date</Form.Label>
-        <Form.Control
-          type="date"
-          name="end_date"
-          value={newProject.end_date}
-          onChange={handleChange}
-        />
-      </Form.Group>
-    </Form>
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={() => setShowModal(false)}>
-      Cancel
-    </Button>
-    <Button variant="primary" onClick={handleSaveProject}>
-      Save Project
-    </Button>
-  </Modal.Footer>
-</Modal>
-
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Start Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="start_date"
+                    value={newProject.start_date}
+                    onChange={handleChange}
+                    isInvalid={!!formErrors.start_date}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.start_date}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>End Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="end_date"
+                    value={newProject.end_date}
+                    onChange={handleChange}
+                    isInvalid={!!formErrors.end_date}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.end_date}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+            </Row>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseModal} disabled={formLoading}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveProject} disabled={formLoading}>
+            {formLoading ? (
+              <>
+                <Spinner
+                  as="span"
+                  animation="border"
+                  size="sm"
+                  role="status"
+                  aria-hidden="true"
+                  className="me-2"
+                />
+                Saving...
+              </>
+            ) : (
+              'Save Project'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
@@ -223,6 +432,19 @@ function getStatusColor(status) {
       return "success";
     default:
       return "light";
+  }
+}
+
+function getPriorityColor(priority) {
+  switch (priority) {
+    case "low":
+      return "success";
+    case "medium":
+      return "warning";
+    case "high":
+      return "danger";
+    default:
+      return "secondary";
   }
 }
 
