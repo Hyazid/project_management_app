@@ -2,12 +2,18 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 import ProjectsList from "./components/ProjectsList";
 import Register from './components/Register';
+import LandingPage from './components/LandingPage';
+import Login from './components/Login';
+import PrivateRoute from './components/PrivateRoute';
+import { Routes, Route } from "react-router-dom";
 function App() {
   return (
-    <>
-      <ProjectsList />
-      <Register />
-    </>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
+      <Route path='/dashboard' element={<PrivateRoute><ProjectsList /></PrivateRoute>}/>
+    </Routes>
   );
 }
 
