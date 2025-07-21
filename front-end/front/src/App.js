@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import Login from './components/Login';
 import PrivateRoute from './components/PrivateRoute';
 import TeamList from './components/TeamList';
+import Stats from './components/Stats';
 import { Routes, Route } from "react-router-dom";
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path='/dashboard' element={<PrivateRoute><ProjectsList /></PrivateRoute>}/>
       <Route path='/TeamList' element={<PrivateRoute><TeamList /></PrivateRoute>}/>
+      <Route path='/Stats' element={<PrivateRoute><Stats /></PrivateRoute>}/>
     </Routes>
   );
 }

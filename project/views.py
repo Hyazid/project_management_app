@@ -6,8 +6,13 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.response import Response
+
+
 @permission_classes([IsAdminUser])
 class UserViewSet(viewsets.ModelViewSet):
     queryset= User.objects.all()
@@ -37,3 +42,30 @@ class RegisterView (APIView):
             serializer.save()
             return Response({'message':'user created'}, status= status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def Task_stats(request):
+    users= User.objects.all()
+    task_count =[]
+    for user in users:
+        assigned_count = Task.objects.filter(assignee = user).count()
+        completed_count =  Task.objects.filter(assignee = user, status ='done').count()
+        task_count.append({
+            'id':user.id,
+            'username':user.username,
+            'assigned':assigned_count,
+            'completed':completed_count,
+        })
+    total_task = Task.objects.count()
+    completed_tasks=  Task.objects.filter(status='done').count()
+    return Response({
+        'per_user':task_count,
+        'total':{
+            'all':total_task,
+            'completed':completed_tasks
+        }
+    })
+
+
+

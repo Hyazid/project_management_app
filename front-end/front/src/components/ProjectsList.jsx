@@ -79,6 +79,9 @@ function ProjectsPage() {
   const goToUser = () => {
     navigate("/TeamList");
   };
+  const goToStats = () => {
+    navigate("/Stats");
+  };
   const handleChange = (e) => {
     const { name, value } = e.target;
     setNewProject({
@@ -241,8 +244,8 @@ function ProjectsPage() {
           <Nav.Link href="#" className="text-white">
             <FaProjectDiagram className="me-2" /> Projects
           </Nav.Link>
-          <Nav.Link href="#" className="text-white">
-            <FaTasks className="me-2" /> Tasks
+          <Nav.Link onClick = {goToStats} className="text-white">
+            <FaTasks className="me-2" /> Stats
           </Nav.Link>
           <Nav.Link href="#" className="text-white">
             <FaSignOutAlt className="me-2" /> logout
@@ -258,6 +261,7 @@ function ProjectsPage() {
             <Navbar.Toggle aria-controls="navbarScroll" />
             <Navbar.Brand  onClick={goToUser}>Users</Navbar.Brand>
             <Navbar.Toggle aria-controls="navbarScroll" />
+            
           </Container>
         </Navbar>
 
