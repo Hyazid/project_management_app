@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Register from "./Register";
+import TeamList from "./TeamList";
+import { useNavigate } from "react-router-dom";
 import { Modal, Form, Alert, Spinner } from "react-bootstrap";
 import {
   Container,
@@ -38,15 +40,52 @@ function ProjectsPage() {
     start_date: '',
     end_date: '',
   });
+  //tasks
+  const [showTaskModal, setShowTaskModal]= useState(false);
+  const [taskProjectId, setTaskProjectId] = useState(null)
+  const [newTask , setNewTask] = useState(
+    {
+      title:'',
+      description:'',
+      priority:'low',
+      status:'todo',
+      assignee: '', // --- Task Assignment ---
+    }
+  )
+  const [taskFormErrors, setTaskFormErrors] = useState({})
+  const [taskFormLoading, setTaskFormLoading]= useState(false)
+
+  // --- Task Assignment: users list ---
+  const [users, setUsers] = useState([]);
+
+  // Fetch all users for assignment
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        const res = await axios.get("http://127.0.0.1:8000/api/users/", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(res.data);
+      } catch(e) {
+        // Optionally handle error
+      }
+    };
+    fetchUsers();
+  }, []);
 
   // Handle form input changes
+  const navigate = useNavigate();
+  const goToUser = () => {
+    navigate("/TeamList");
+  };
   const handleChange = (e) => {
     const { name, value } = e.target;
     setNewProject({
       ...newProject,
       [name]: value,
     });
-    
+
     // Clear specific field error when user starts typing
     if (formErrors[name]) {
       setFormErrors({
@@ -59,21 +98,21 @@ function ProjectsPage() {
   // Validate form fields
   const validateForm = () => {
     const errors = {};
-    
+
     if (!newProject.name.trim()) {
       errors.name = 'Project name is required';
     }
-    
+
     if (!newProject.description.trim()) {
       errors.description = 'Description is required';
     }
-    
+
     if (newProject.start_date && newProject.end_date) {
       if (new Date(newProject.start_date) > new Date(newProject.end_date)) {
         errors.end_date = 'End date cannot be before start date';
       }
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -88,17 +127,22 @@ function ProjectsPage() {
     setError("");
 
     try {
+      const token = localStorage.getItem("accessToken");
       const response = await axios.post('http://127.0.0.1:8000/api/projects/', {
         name: newProject.name.trim(),
         description: newProject.description.trim(),
         start_date: newProject.start_date || null,
         end_date: newProject.end_date || null,
-        owner: 1, // Replace with actual user ID from authentication
+
+      },{
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
 
       // Add project to local state
       setProjects([...projects, response.data]);
-      
+
       // Reset form and close modal
       setNewProject({
         name: '',
@@ -108,10 +152,10 @@ function ProjectsPage() {
       });
       setShowModal(false);
       setFormErrors({});
-      
+
     } catch (err) {
       console.error('Error saving project:', err);
-      
+
       if (err.response?.data) {
         // Handle specific field errors from backend
         if (typeof err.response.data === 'object') {
@@ -147,7 +191,12 @@ function ProjectsPage() {
     }
 
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/projects/${projectId}/`);
+      const token = localStorage.getItem("accessToken");
+      await axios.delete(`http://127.0.0.1:8000/api/projects/${projectId}/`,{
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
       setProjects(projects.filter(proj => proj.id !== projectId));
     } catch (err) {
       console.error('Error deleting project:', err);
@@ -160,7 +209,12 @@ function ProjectsPage() {
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("http://127.0.0.1:8000/api/projects/");
+        const token = localStorage.getItem("accessToken");
+        const response = await axios.get("http://127.0.0.1:8000/api/projects/",{
+          headers:{
+            Authorization: `Bearer ${token}`,
+          }
+        });
         setProjects(response.data);
       } catch (err) {
         console.error('Error fetching projects:', err);
@@ -201,6 +255,8 @@ function ProjectsPage() {
         <Navbar bg="light" expand="lg" className="shadow-sm">
           <Container fluid>
             <Navbar.Brand href="#">Dashboard</Navbar.Brand>
+            <Navbar.Toggle aria-controls="navbarScroll" />
+            <Navbar.Brand  onClick={goToUser}>Users</Navbar.Brand>
             <Navbar.Toggle aria-controls="navbarScroll" />
           </Container>
         </Navbar>
@@ -264,14 +320,20 @@ function ProjectsPage() {
                               )}
                             </div>
                             <div className="d-flex gap-2">
-                              <Button size="sm" variant="success">
+                              <Button size="sm"
+                                variant="success"
+                                onClick={()=>{
+                                  setTaskProjectId(proj.id)
+                                  setShowTaskModal(true)
+                                }}
+                              >
                                 <FaPlus className="me-1" /> Add Task
                               </Button>
                               <Button size="sm" variant="outline-secondary">
                                 <FaEdit />
                               </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="outline-danger"
                                 onClick={() => handleDeleteProject(proj.id)}
                               >
@@ -292,6 +354,12 @@ function ProjectsPage() {
                                     <span>{task.title}</span>
                                     {task.description && (
                                       <small className="text-muted d-block">{task.description}</small>
+                                    )}
+                                    {/* --- Task Assignment: show assignee --- */}
+                                    {task.assignee && (
+                                      <div>
+                                        <small className="text-primary">Assigned to: {task.assignee.username}</small>
+                                      </div>
                                     )}
                                   </div>
                                   <div className="d-flex gap-2 align-items-center">
@@ -328,7 +396,7 @@ function ProjectsPage() {
         </Modal.Header>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
-          
+
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>Project Name <span className="text-danger">*</span></Form.Label>
@@ -415,6 +483,136 @@ function ProjectsPage() {
             ) : (
               'Save Project'
             )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* --- Task Assignment: Add Task Modal with Assignee Dropdown --- */}
+      <Modal show={showTaskModal} onHide={() => setShowTaskModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Add Task</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Title</Form.Label>
+              <Form.Control
+                type="text"
+                name="title"
+                value={newTask.title}
+                onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                isInvalid={!!taskFormErrors.title}
+              />
+              <Form.Control.Feedback type="invalid">
+                {taskFormErrors.title}
+              </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                name="description"
+                value={newTask.description}
+                onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                isInvalid={!!taskFormErrors.description}
+              />
+              <Form.Control.Feedback type="invalid">
+                {taskFormErrors.description}
+              </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Priority</Form.Label>
+              <Form.Select
+                name="priority"
+                value={newTask.priority}
+                onChange={e => setNewTask({ ...newTask, priority: e.target.value })}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Status</Form.Label>
+              <Form.Select
+                name="status"
+                value={newTask.status}
+                onChange={e => setNewTask({ ...newTask, status: e.target.value })}
+              >
+                <option value="todo">To Do</option>
+                <option value="in-progress">In Progress</option>
+                <option value="done">Done</option>
+              </Form.Select>
+            </Form.Group>
+            {/* --- Task Assignment: Assignee dropdown --- */}
+            <Form.Group className="mb-3">
+              <Form.Label>Assign To</Form.Label>
+              <Form.Select
+                name="assignee"
+                value={newTask.assignee}
+                onChange={e => setNewTask({ ...newTask, assignee: e.target.value })}
+              >
+                <option value="">Unassigned</option>
+                {users.map(user =>
+                  <option key={user.id} value={user.id}>{user.username}</option>
+                )}
+              </Form.Select>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowTaskModal(false)}
+            disabled={taskFormLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={async () => {
+              setTaskFormLoading(true);
+              setTaskFormErrors({});
+              // Validate
+              if (!newTask.title.trim()) {
+                setTaskFormErrors({ title: 'Title is required' });
+                setTaskFormLoading(false);
+                return;
+              }
+              // Submit to backend
+              try {
+                const token = localStorage.getItem("accessToken");
+                const response = await axios.post(
+                  "http://127.0.0.1:8000/api/project/tasks/",
+                  {
+                    ...newTask,
+                    project: taskProjectId,
+                    assignee: newTask.assignee || null // --- Task Assignment ---
+                  },
+                  {
+                    headers: { Authorization: `Bearer ${token}` }
+                  }
+                );
+                setProjects(prevProjects =>
+                  prevProjects.map(project =>
+                    project.id === response.data.project
+                      ? { ...project, tasks: [...(project.tasks || []), response.data] }
+                      : project
+                  )
+                );
+                setShowTaskModal(false);
+                setNewTask({ title: '', description: '', priority: 'low', status: 'todo', assignee: '' });
+                // Optionally re-fetch projects/tasks here!
+              } catch (err) {
+                if (err.response?.data) setTaskFormErrors(err.response.data);
+              } finally {
+                setTaskFormLoading(false);
+              }
+            }}
+            disabled={taskFormLoading}
+          >
+            {taskFormLoading ? "Saving..." : "Save Task"}
           </Button>
         </Modal.Footer>
       </Modal>

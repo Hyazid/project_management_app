@@ -14,7 +14,7 @@ function Login() {
 
   const handleSubmit = e => {
     e.preventDefault();
-    const token = localStorage.getItem('accessToken');
+
     axios
   .post(
     "http://127.0.0.1:8000/api/token/",
@@ -22,14 +22,16 @@ function Login() {
     {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("accessToken")}`
+        //Authorization: `Bearer ${localStorage.getItem("accessToken")}`
       },
     }
   )
       .then(res => {
         // Save token to localStorage
-        localStorage.setItem("access", res.data.access);
-        localStorage.setItem("refresh", res.data.refresh);
+        console.log("Received access:", res.data.access);
+  console.log("Received refresh:", res.data.refresh);
+  localStorage.setItem("accessToken", res.data.access);
+  localStorage.setItem("refreshToken", res.data.refresh);
         console.log(res.data.access+''+res.data.refresh)
         navigate("/dashboard"); // Redirect to dashboard or home
       })
