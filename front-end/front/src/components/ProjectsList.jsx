@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Register from "./Register";
 import TeamList from "./TeamList";
+import TaskAssign from "./TaskAssign";
 import { useNavigate } from "react-router-dom";
 import { Modal, Form, Alert, Spinner } from "react-bootstrap";
 import {
@@ -20,6 +21,7 @@ import {
   FaTasks,
   FaBars,
   FaSignOutAlt,
+  FaChartBar,
   FaEdit,
   FaTrash,
 } from "react-icons/fa";
@@ -81,6 +83,9 @@ function ProjectsPage() {
   };
   const goToStats = () => {
     navigate("/Stats");
+  };
+  const goToTasks = () => {
+    navigate("/MyTasks");
   };
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -244,8 +249,11 @@ function ProjectsPage() {
           <Nav.Link href="#" className="text-white">
             <FaProjectDiagram className="me-2" /> Projects
           </Nav.Link>
+          <Nav.Link onClick = {goToTasks} className="text-white">
+            <FaTasks className="me-2" /> My Tasks
+          </Nav.Link>
           <Nav.Link onClick = {goToStats} className="text-white">
-            <FaTasks className="me-2" /> Stats
+            <FaChartBar className="me-2" /> Stats
           </Nav.Link>
           <Nav.Link href="#" className="text-white">
             <FaSignOutAlt className="me-2" /> logout
@@ -592,7 +600,7 @@ function ProjectsPage() {
                   {
                     ...newTask,
                     project: taskProjectId,
-                    assignee: newTask.assignee || null // --- Task Assignment ---
+                    assignee_id: newTask.assignee || null // --- Task Assignment ---
                   },
                   {
                     headers: { Authorization: `Bearer ${token}` }

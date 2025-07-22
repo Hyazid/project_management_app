@@ -67,5 +67,21 @@ def Task_stats(request):
         }
     })
 
+#return all the task for a user
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_task(request):
+    tasks= Task.objects.filter(assignee=request.user)
+    serializer = TaskSerializer(tasks,many=True)
+    return Response(serializer.data)
+#return all the projects by a user
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_project(request):
+    user = request.user
+    projects = Project.objects.filter(owner=user).distinct()
+    serializer = ProjectSerializer(projects, many=True)
+    return Response(serializer.data)
+
 
 
