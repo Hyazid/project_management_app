@@ -17,9 +17,12 @@ import {
 } from "react-bootstrap";
 import {
   FaPlus,
+  FaUser,
   FaProjectDiagram,
   FaTasks,
+  FaTeamspeak,
   FaBars,
+  FaMailBulk,
   FaSignOutAlt,
   FaChartBar,
   FaEdit,
@@ -64,6 +67,10 @@ function ProjectsPage() {
   const [editingTask, setEditingTask] = useState(null);
 
   const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    navigate("/login");
+  };
 
   /* -------------------------------- fetchers -------------------------------- */
   useEffect(() => {
@@ -245,14 +252,20 @@ function ProjectsPage() {
           <Nav.Link onClick={nav("/")} active>
             <FaProjectDiagram className="me-2" /> {sidebarOpen && "Projects"}
           </Nav.Link>
+          <Nav.Link onClick={nav("/Mail")} active>
+            <FaMailBulk className="me-2" /> {sidebarOpen && "Messages"}
+          </Nav.Link>
           <Nav.Link onClick={nav("/MyTasks")}>
             <FaTasks className="me-2" /> {sidebarOpen && "My Tasks"}
           </Nav.Link>
           <Nav.Link onClick={nav("/TeamList")}>
-            <FaChartBar className="me-2" /> {sidebarOpen && "Team"}
+            <FaTeamspeak className="me-2" /> {sidebarOpen && "Team"}
           </Nav.Link>
           <Nav.Link onClick={nav("/Stats")}>
             <FaChartBar className="me-2" /> {sidebarOpen && "Stats"}
+          </Nav.Link>
+          <Nav.Link onClick={nav("/profile")}>
+            <FaUser className="me-2" /> {sidebarOpen && "Profile"}
           </Nav.Link>
           <Nav.Link onClick={() => localStorage.clear() & window.location.reload()}>
             <FaSignOutAlt className="me-2" /> {sidebarOpen && "Logout"}

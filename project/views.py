@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from rest_framework import viewsets,permissions
-from .models import Task , Project,User
-from .serializers import TaskSerializer,ProjectSerializer,RegisterSerializer, UserSerializer
+from django.db.models import Q
+from .models import Task , Project,User,Message
+from .serializers import TaskSerializer,ProjectSerializer,RegisterSerializer, UserSerializer, MessageSerializer
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
@@ -24,6 +25,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['project', 'assignee']
     permission_classes = [permissions.IsAuthenticated]
+
 # Create your views here.
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
@@ -34,7 +36,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self,serializer):
         serializer.save(owner = self.request.user)
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
 
+    def get_queryset(self):
+        return Message.objects.filter(
+            Q(sender=self.request.user) | Q(receiver=self.request.user)
+        )
+    def perform_create(self,serializer):
+        serializer.save(sender= self.request.user)
 class RegisterView (APIView):
     def post(self, request):
         serializer = RegisterSerializer(data= request.data)
@@ -82,6 +93,14 @@ def my_project(request):
     projects = Project.objects.filter(owner=user).distinct()
     serializer = ProjectSerializer(projects, many=True)
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me(request):
+    return Response(UserSerializer(request.user).data)
+
+
+
 
 
 

@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'project',
-    'corsheaders'
+    'corsheaders',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -80,6 +81,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'project_management.wsgi.application'
+ASGI_APPLICATION = 'project_management.asgi.application'
 
 
 # Database
