@@ -14,6 +14,10 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = '__all__'
+    def create(self, validated_data):
+        validated_data['sender']= self.context['request'].user
+        return super().create(validated_data)
+    
 class TaskSerializer(serializers.ModelSerializer):
     assignee = UserSerializer(read_only=True)
     assignee_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(),source='assignee', write_only=True)

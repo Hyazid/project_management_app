@@ -37,15 +37,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self,serializer):
         serializer.save(owner = self.request.user)
 class MessageViewSet(viewsets.ModelViewSet):
+    sender = UserSerializer(read_only=True)
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
-
+    permission_classes = [permissions.IsAuthenticated]
     def get_queryset(self):
-        return Message.objects.filter(
-            Q(sender=self.request.user) | Q(receiver=self.request.user)
-        )
+        user = self.request.user
+        return Message.objects.filter(sender=user) | Message.objects.filter(receiver=user)
     def perform_create(self,serializer):
-        serializer.save(sender= self.request.user)
+        serializer.save(sender = self.request.user)
 class RegisterView (APIView):
     def post(self, request):
         serializer = RegisterSerializer(data= request.data)

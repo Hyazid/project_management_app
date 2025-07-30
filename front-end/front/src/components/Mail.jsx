@@ -1,93 +1,142 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { ListGroup, Form, Button, Card } from "react-bootstrap";
-import { FaPaperPlane } from "react-icons/fa";
+import { ListGroup, Form, Button, Card, Spinner } from "react-bootstrap";
+import { FaUser, FaPaperPlane } from "react-icons/fa";
 
 const BASE_URL = "http://127.0.0.1:8000/api";
 
-function Mail({ otherUserId }) {
+function MessageList({ otherUserId }) {
+  /* ------------------------------------------------------------------ */
+  /* 1.  Users sidebar                                                  */
+  /* ------------------------------------------------------------------ */
+  const [users, setUsers] = useState([]);
+  const [activeUser, setActiveUser] = useState(otherUserId);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const token = localStorage.getItem("accessToken");
+  const me = Number(localStorage.getItem("userId"));
+
+  useEffect(() => {
+    axios
+      .get(`${BASE_URL}/users/`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => setUsers(r.data.filter((u) => u.id !== me)))
+      .finally(() => setLoadingUsers(false));
+  }, [token, me]);
+
+  /* ------------------------------------------------------------------ */
+  /* 2.  Messages panel                                                 */
+  /* ------------------------------------------------------------------ */
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
 
-  const token = localStorage.getItem("accessToken");
-  const userId = Number(localStorage.getItem("userId"));
-
-  // Load messages
-  const load = () => {
-    if (!token || !userId || !otherUserId) return;
+  useEffect(() => {
+    if (!activeUser) return;
+    setLoadingMsgs(true);
+    // fetch messages to OR from the active user
     axios
-      .get(`${BASE_URL}/messages/?receiver=${otherUserId}`, {
+      .get(`${BASE_URL}/messages/?receiver=${activeUser}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((r) => setMessages(r.data))
-      .catch((err) => console.error("Failed to load messages:", err));
-  };
+      .finally(() => setLoadingMsgs(false));
+  }, [activeUser, token]);
 
-  // Send message
   const send = () => {
     if (!text.trim()) return;
-    axios
-      .post(
-        `${BASE_URL}/messages/`,
-        { receiver: otherUserId, body: text },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+    axios.post(
+      `${BASE_URL}/messages/`,
+      { receiver: Number(activeUser), body: text.trim() },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
       .then(() => {
         setText("");
-        load();
-      })
-      .catch((err) => console.error("Failed to send message:", err));
+        // refetch fresh messages
+        axios
+          .get(`${BASE_URL}/messages/?receiver=${activeUser}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((r) => setMessages(r.data));
+      }).catch(err=>{console.error('Error',err.response?.data)})
   };
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 5000); // Refresh every 5 seconds (optional)
-    return () => clearInterval(interval);
-  }, [otherUserId]);
-
+  /* ------------------------------------------------------------------ */
+  /* 3.  Layout                                                         */
+  /* ------------------------------------------------------------------ */
   return (
-    <Card className="shadow-sm">
-      <Card.Body className="p-0">
-        {/* Messages List */}
-        <div className="messages-scroll" style={{ maxHeight: 400, overflowY: "auto" }}>
-          <ListGroup variant="flush">
-            {messages.map((m) => (
+    <div className="d-flex" style={{ height: "calc(100vh - 60px)" }}>
+      {/* LEFT: user list */}
+      <Card style={{ width: 260 }} className="border-0">
+        <Card.Header className="bg-light">Users</Card.Header>
+        {loadingUsers ? (
+          <div className="p-3 text-center">
+            <Spinner animation="border" size="sm" />
+          </div>
+        ) : (
+          <ListGroup variant="flush" className="flex-grow-1 overflow-auto">
+            {users.map((u) => (
               <ListGroup.Item
-                key={m.id}
-                className={`d-flex flex-column ${
-                  m.sender.id === userId ? "align-items-end bg-primary-subtle" : "align-items-start bg-light"
-                }`}
-                style={{ border: "none" }}
+                key={u.id}
+                action
+                active={u.id === activeUser}
+                onClick={() => setActiveUser(u.id)}
+                className="d-flex align-items-center"
               >
-                <span className="fw-semibold">{m.body}</span>
-                <small className="text-muted mt-1">
-                  {new Date(m.created_at).toLocaleTimeString()}
-                </small>
+                <FaUser className="me-2" />
+                {u.username}
               </ListGroup.Item>
             ))}
           </ListGroup>
-        </div>
+        )}
+      </Card>
 
-        {/* Message Input */}
-        <div className="d-flex p-3 border-top">
+      {/* RIGHT: chat area */}
+      <Card className="flex-grow-1 ms-2">
+        <Card.Header className="bg-light">
+          {activeUser ? `Chat with ${users.find((u) => u.id === activeUser)?.username}` : "Select a user"}
+        </Card.Header>
+
+        {loadingMsgs ? (
+          <div className="p-3 text-center">
+            <Spinner animation="border" size="sm" />
+          </div>
+        ) : (
+          <ListGroup
+            variant="flush"
+            className="flex-grow-1 overflow-auto"
+            style={{ maxHeight: "calc(100vh - 200px)" }}
+          >
+            {messages.map((m) => (
+              <ListGroup.Item
+                key={m.id}
+                className="border-0"
+                style={{
+                  background: m.sender.id === me ? "#e3f2fd" : "#f1f3f5",
+                  textAlign: m.sender.id === me ? "right" : "left",
+                }}
+              >
+                {m.body}
+                <br />
+                <small className="text-muted">{new Date(m.created_at).toLocaleTimeString()}</small>
+              </ListGroup.Item>
+            ))}
+          </ListGroup>
+        )}
+
+        {/* input bar */}
+        <div className="p-2 border-top d-flex">
           <Form.Control
-            placeholder="Type a message…"
+            placeholder="Type a message..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
+            onKeyDown={(e) => e.key === "Enter" && send()}
           />
           <Button variant="primary" className="ms-2" onClick={send}>
             <FaPaperPlane />
           </Button>
         </div>
-      </Card.Body>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
-export default Mail;
+export default MessageList;
